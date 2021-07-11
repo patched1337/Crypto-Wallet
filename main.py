@@ -6,8 +6,15 @@ author: patched1337@github.com
 
 import uvicorn
 import requests
-from fastapi import FastAPI
 from pywallet import wallet
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+
+async def http_error(request, exc):
+    return JSONResponse(
+        {"message": exc.detail, "status_code": exc.status_code},
+        status_code=exc.status_code,
+    )
 
 app = FastAPI(
     title="Crypto Wallet API",
@@ -15,8 +22,10 @@ app = FastAPI(
     version="1.0",
     docs_url="/",
     redoc_url=None,
-    openapi_url="/api/api-config.json"
+    openapi_url="/api/api-config.json",
+    exception_handlers={HTTPException: http_error}
 )
+
 class wallets:
 
     """
@@ -28,7 +37,7 @@ class wallets:
 
     def _create_wallet(self, network: str) -> dict:
         if not network.upper() in self.networks:
-            return {"message": "Invalid network"}
+            raise HTTPException(status_code=404, detail="invalid network identifier")
 
         seed = wallet.generate_mnemonic()
         created = wallet.create_wallet(network=network, seed=seed, children=0)
@@ -52,7 +61,7 @@ class wallets:
 
     def _create_child_wallet(self, network: str, x_public_key: str) -> dict:
         if not network.upper() in self.networks:
-            return {"message": "Invalid network"}
+            raise HTTPException(status_code=404, detail="invalid network identifier")
 
         child = wallet.create_address(
             network=network,
@@ -63,7 +72,7 @@ class wallets:
 
     def _wallet_balance(self, network: str, address: str) -> dict:
         if not network.upper() in self.networks:
-            return {"message": "Invalid network"}
+            raise HTTPException(status_code=404, detail="invalid network identifier")
 
         if network.upper() == "BTC":
             r = requests.get("https://api.smartbit.com.au/v1/blockchain/address/%s" % (address))
@@ -79,40 +88,40 @@ class wallets:
                     },
                 }
             else:
-                return r.json()
+                raise HTTPException(status_code=400, detail="unable to get address balance")
 
         if network.upper() == "ETH":
             csrf = requests.get("https://www.cointracker.io/wallet/ethereum")
             if "csrf_token" in csrf.text:
                 csrf_token = csrf.text.split('"csrf_token" type="hidden" value="')[1].split('"')[0]
             else:
-                return {"message": "failed to check wallet balance"}
+                raise HTTPException(status_code=400, detail="unable to get address balance")
 
             data = {"csrf_token": csrf_token, "address": address}
             r = requests.post("https://www.cointracker.io/wallet_balance/poll", data=data)
             if r.json()["success"]:
                 return {"balance": r.json()["balance"], "usd": r.json()["usd_value"]}
             else:
-                return r.json()
+                raise HTTPException(status_code=400, detail="unable to get address balance")
 
         if network.upper() == "LTC":
             r = requests.get("https://api.blockcypher.com/v1/ltc/main/addrs/%s" % (address))
             if "error" in r.text:
-                return r.json()
+                raise HTTPException(status_code=400, detail="unable to get address balance")
             else:
                 return {"balance": r.json()["balance"], "unconfirmed": r.json()["unconfirmed_balance"]}
 
         if network.upper() == "DASH":
             r = requests.get("https://api.blockcypher.com/v1/dash/main/addrs/%s" % (address))
             if "error" in r.text:
-                return r.json()
+                raise HTTPException(status_code=400, detail="unable to get address balance")
             else:
                 return {"balance": r.json()["balance"], "unconfirmed": r.json()["unconfirmed_balance"]}
 
         if network.upper() == "DOGE":
             r = requests.get("https://api.blockcypher.com/v1/doge/main/addrs/%s" % (address))
             if "error" in r.text:
-                return r.json()
+                raise HTTPException(status_code=400, detail="unable to get address balance")
             else:
                 return {"balance": r.json()["balance"], "unconfirmed": r.json()["unconfirmed_balance"]}
 
