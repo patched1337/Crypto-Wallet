@@ -1,3 +1,9 @@
+"""
+crypto wallet api.
+
+author: patched1337@github.com
+"""
+
 import uvicorn
 import requests
 from fastapi import FastAPI
@@ -12,6 +18,10 @@ app = FastAPI(
     openapi_url="/api/api-config.json"
 )
 class wallets:
+
+    """
+    simple little wrapper using pywallet and a few crypto apis.
+    """
 
     def __init__(self) -> None:
         self.networks = ["BTC", "ETH", "LTC", "DASH", "DOGE"]
@@ -107,6 +117,9 @@ class wallets:
                 return {"balance": r.json()["balance"], "unconfirmed": r.json()["unconfirmed_balance"]}
 
 class Routes:
+    """
+    all the routes/endpoints for the crypto api.
+    """
 
     @app.get("/api/networks")
     async def networks():
@@ -125,6 +138,9 @@ class Routes:
         return wallets()._wallet_balance(network, address)
 
 if __name__ == "__main__":
+    """
+    starts the fastapi server using uvicorn.
+    """
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
